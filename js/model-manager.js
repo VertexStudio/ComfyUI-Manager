@@ -1,8 +1,11 @@
 import { $el } from "../../scripts/ui.js";
-import { 
-	manager_instance, rebootAPI, 
-	fetchData, md5, icons 
-} from  "./common.js";
+import {
+  manager_instance,
+  rebootAPI,
+  fetchData,
+  md5,
+  icons,
+} from "./common.js";
 
 // https://cenfun.github.io/turbogrid/api.html
 import TG from "./turbogrid.esm.js";
@@ -74,7 +77,9 @@ const pageCss = `
 	background-size: 16px;
 	background-position: 5px center;
 	background-repeat: no-repeat;
-	background-image: url("data:image/svg+xml;charset=utf8,${encodeURIComponent(icons.search.replace("currentColor", "#888"))}");
+	background-image: url("data:image/svg+xml;charset=utf8,${encodeURIComponent(
+    icons.search.replace("currentColor", "#888")
+  )}");
 }
 
 .cmm-manager-status {
@@ -214,10 +219,33 @@ const pageCss = `
 	background-color: #333;
 }
 
+.cmm-manager dialog {
+    background: var(--bg-color);
+    color: var(--fg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    max-width: 500px;
+    width: 100%;
+}
+
+.cmm-manager dialog input,
+.cmm-manager dialog textarea {
+    background: var(--comfy-input-bg);
+    color: var(--input-text);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.cmm-manager dialog button {
+    min-width: 80px;
+}
+
 `;
 
 const pageHtml = `
 <div class="cmm-manager-header">
+	<button class="cmm-manager-add">Add Model</button>
 	<label>Filter
 		<select class="cmm-manager-filter"></select>
 	</label>
@@ -241,651 +269,757 @@ const pageHtml = `
 `;
 
 export class ModelManager {
-	static instance = null;
+  static instance = null;
 
-	constructor(app, manager_dialog) {
-		this.app = app;
-		this.manager_dialog = manager_dialog;
-		this.id = "cmm-manager";
+  constructor(app, manager_dialog) {
+    this.app = app;
+    this.manager_dialog = manager_dialog;
+    this.id = "cmm-manager";
 
-		this.filter = '';
-		this.type = '';
-		this.base = '';
-		this.keywords = '';
+    this.filter = "";
+    this.type = "";
+    this.base = "";
+    this.keywords = "";
 
-		this.init();
-	}
+    this.init();
+  }
 
-	init() {
+  init() {
+    if (!document.querySelector(`style[context="${this.id}"]`)) {
+      const $style = document.createElement("style");
+      $style.setAttribute("context", this.id);
+      $style.innerHTML = pageCss;
+      document.head.appendChild($style);
+    }
 
-		if (!document.querySelector(`style[context="${this.id}"]`)) {
-			const $style = document.createElement("style");
-			$style.setAttribute("context", this.id);
-			$style.innerHTML = pageCss;
-			document.head.appendChild($style);
-		}
+    this.element = $el("div", {
+      parent: document.body,
+      className: "comfy-modal cmm-manager",
+    });
+    this.element.innerHTML = pageHtml;
+    this.initFilter();
+    this.bindEvents();
+    this.initGrid();
+  }
 
-		this.element = $el("div", {
-			parent: document.body,
-			className: "comfy-modal cmm-manager"
-		});
-		this.element.innerHTML = pageHtml;
-		this.initFilter();
-		this.bindEvents();
-		this.initGrid();
-	}
+  initFilter() {
+    this.filterList = [
+      {
+        label: "All",
+        value: "",
+      },
+      {
+        label: "Installed",
+        value: "True",
+      },
+      {
+        label: "Not Installed",
+        value: "False",
+      },
+    ];
 
-	initFilter() {
-		
-		this.filterList = [{
-			label: "All",
-			value: ""
-		}, {
-			label: "Installed",
-			value: "True"
-		}, {
-			label: "Not Installed",
-			value: "False"
-		}];
+    this.typeList = [
+      {
+        label: "All",
+        value: "",
+      },
+    ];
 
-		this.typeList = [{
-			label: "All",
-			value: ""
-		}];
+    this.baseList = [
+      {
+        label: "All",
+        value: "",
+      },
+    ];
 
-		this.baseList = [{
-			label: "All",
-			value: ""
-		}];
+    this.updateFilter();
+  }
 
-		this.updateFilter();
-		
-	}
+  updateFilter() {
+    const $filter = this.element.querySelector(".cmm-manager-filter");
+    $filter.innerHTML = this.filterList
+      .map((item) => {
+        const selected = item.value === this.filter ? " selected" : "";
+        return `<option value="${item.value}"${selected}>${item.label}</option>`;
+      })
+      .join("");
 
-	updateFilter() {
-		const $filter  = this.element.querySelector(".cmm-manager-filter");
-		$filter.innerHTML = this.filterList.map(item => {
-			const selected = item.value === this.filter ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+    const $type = this.element.querySelector(".cmm-manager-type");
+    $type.innerHTML = this.typeList
+      .map((item) => {
+        const selected = item.value === this.type ? " selected" : "";
+        return `<option value="${item.value}"${selected}>${item.label}</option>`;
+      })
+      .join("");
 
-		const $type  = this.element.querySelector(".cmm-manager-type");
-		$type.innerHTML = this.typeList.map(item => {
-			const selected = item.value === this.type ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+    const $base = this.element.querySelector(".cmm-manager-base");
+    $base.innerHTML = this.baseList
+      .map((item) => {
+        const selected = item.value === this.base ? " selected" : "";
+        return `<option value="${item.value}"${selected}>${item.label}</option>`;
+      })
+      .join("");
+  }
 
-		const $base  = this.element.querySelector(".cmm-manager-base");
-		$base.innerHTML = this.baseList.map(item => {
-			const selected = item.value === this.base ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+  bindEvents() {
+    const eventsMap = {
+      ".cmm-manager-filter": {
+        change: (e) => {
+          this.filter = e.target.value;
+          this.updateGrid();
+        },
+      },
+      ".cmm-manager-type": {
+        change: (e) => {
+          this.type = e.target.value;
+          this.updateGrid();
+        },
+      },
+      ".cmm-manager-base": {
+        change: (e) => {
+          this.base = e.target.value;
+          this.updateGrid();
+        },
+      },
 
-	}
+      ".cmm-manager-keywords": {
+        input: (e) => {
+          const keywords = `${e.target.value}`.trim();
+          if (keywords !== this.keywords) {
+            this.keywords = keywords;
+            this.updateGrid();
+          }
+        },
+        focus: (e) => e.target.select(),
+      },
 
-	bindEvents() {
-		const eventsMap = {
-			".cmm-manager-filter": {
-				change: (e) => {
-					this.filter = e.target.value;
-					this.updateGrid();
-				}
-			},
-			".cmm-manager-type": {
-				change: (e) => {
-					this.type = e.target.value;
-					this.updateGrid();
-				}
-			},
-			".cmm-manager-base": {
-				change: (e) => {
-					this.base = e.target.value;
-					this.updateGrid();
-				}
-			},
+      ".cmm-manager-selection": {
+        click: (e) => {
+          const target = e.target;
+          const mode = target.getAttribute("mode");
+          if (mode === "install") {
+            this.installModels(this.selectedModels, target);
+          }
+        },
+      },
 
-			".cmm-manager-keywords": {
-				input: (e) => {
-					const keywords = `${e.target.value}`.trim();
-					if (keywords !== this.keywords) {
-						this.keywords = keywords;
-						this.updateGrid();
-					}
-				},
-				focus: (e) => e.target.select()
-			},
+      ".cmm-manager-close": {
+        click: (e) => this.close(),
+      },
 
-			".cmm-manager-selection": {
-				click: (e) => {
-					const target = e.target;
-					const mode = target.getAttribute("mode");
-					if (mode === "install") {
-						this.installModels(this.selectedModels, target);
-					}
-				}
-			},
+      ".cmm-manager-add": {
+        click: () => this.showAddModelDialog(),
+      },
+    };
+    Object.keys(eventsMap).forEach((selector) => {
+      const target = this.element.querySelector(selector);
+      if (target) {
+        const events = eventsMap[selector];
+        if (events) {
+          Object.keys(events).forEach((type) => {
+            target.addEventListener(type, events[type]);
+          });
+        }
+      }
+    });
+  }
 
-			".cmm-manager-close": {
-				click: (e) => this.close()
-			},
+  // ===========================================================================================
 
-		};
-		Object.keys(eventsMap).forEach(selector => {
-			const target = this.element.querySelector(selector);
-			if (target) {
-				const events = eventsMap[selector];
-				if (events) {
-					Object.keys(events).forEach(type => {
-						target.addEventListener(type, events[type]);
-					});
-				}
-			}
-		});
-	}
+  initGrid() {
+    const container = this.element.querySelector(".cmm-manager-grid");
+    const grid = new TG.Grid(container);
+    this.grid = grid;
 
-	// ===========================================================================================
+    grid.bind("onUpdated", (e, d) => {
+      this.showStatus(
+        `${grid.viewRows.length.toLocaleString()} external models`
+      );
+    });
 
-	initGrid() {
-		const container = this.element.querySelector(".cmm-manager-grid");
-		const grid = new TG.Grid(container);
-		this.grid = grid;
-		
-		grid.bind('onUpdated', (e, d) => {
+    grid.bind("onSelectChanged", (e, changes) => {
+      this.renderSelected();
+    });
 
-			this.showStatus(`${grid.viewRows.length.toLocaleString()} external models`);
+    grid.bind("onClick", (e, d) => {
+      const { rowItem } = d;
+      const target = d.e.target;
+      const mode = target.getAttribute("mode");
+      if (mode === "install") {
+        this.installModels([rowItem], target);
+      }
+    });
 
+    grid.setOption({
+      theme: "dark",
+
+      selectVisible: true,
+      selectMultiple: true,
+      selectAllVisible: true,
+
+      textSelectable: true,
+      scrollbarRound: true,
+
+      frozenColumn: 1,
+      rowNotFound: "No Results",
+
+      rowHeight: 40,
+      bindWindowResize: true,
+      bindContainerResize: true,
+
+      cellResizeObserver: (rowItem, columnItem) => {
+        const autoHeightColumns = ["name", "description"];
+        return autoHeightColumns.includes(columnItem.id);
+      },
+
+      // updateGrid handler for filter and keywords
+      rowFilter: (rowItem) => {
+        const searchableColumns = [
+          "name",
+          "type",
+          "base",
+          "description",
+          "filename",
+          "save_path",
+        ];
+
+        let shouldShown = grid.highlightKeywordsFilter(
+          rowItem,
+          searchableColumns,
+          this.keywords
+        );
+
+        if (shouldShown) {
+          if (this.filter && rowItem.installed !== this.filter) {
+            return false;
+          }
+
+          if (this.type && rowItem.type !== this.type) {
+            return false;
+          }
+
+          if (this.base && rowItem.base !== this.base) {
+            return false;
+          }
+        }
+
+        return shouldShown;
+      },
+    });
+  }
+
+  renderGrid() {
+    // update theme
+    const colorPalette =
+      this.app.ui.settings.settingsValues["Comfy.ColorPalette"];
+    Array.from(this.element.classList).forEach((cn) => {
+      if (cn.startsWith("cmm-manager-")) {
+        this.element.classList.remove(cn);
+      }
+    });
+    this.element.classList.add(`cmm-manager-${colorPalette}`);
+
+    const options = {
+      theme: colorPalette === "light" ? "" : "dark",
+    };
+
+    const rows = this.modelList || [];
+
+    const columns = [
+      {
+        id: "id",
+        name: "ID",
+        width: 50,
+        align: "center",
+      },
+      {
+        id: "name",
+        name: "Name",
+        width: 200,
+        minWidth: 100,
+        maxWidth: 500,
+        classMap: "cmm-node-name",
+        formatter: function (name, rowItem, columnItem, cellNode) {
+          return `<a href=${rowItem.reference} target="_blank"><b>${name}</b></a>`;
+        },
+      },
+      {
+        id: "installed",
+        name: "Install",
+        width: 130,
+        minWidth: 110,
+        maxWidth: 200,
+        sortable: false,
+        align: "center",
+        formatter: (installed, rowItem, columnItem) => {
+          if (rowItem.refresh) {
+            return `<font color="red">Refresh Required</span>`;
+          }
+          if (installed === "True") {
+            return `<div class="cmm-icon-passed">${icons.passed}</div>`;
+          }
+          return `<button class="cmm-btn-install" mode="install">Install</button>`;
+        },
+      },
+      {
+        id: "url",
+        name: "",
+        width: 50,
+        sortable: false,
+        align: "center",
+        formatter: (url, rowItem, columnItem) => {
+          return `<a class="cmm-btn-download" title="Download file" href="${url}" target="_blank">${icons.download}</a>`;
+        },
+      },
+      {
+        id: "size",
+        name: "Size",
+        width: 100,
+        formatter: (size) => {
+          if (typeof size === "number") {
+            return this.formatSize(size);
+          }
+          return size;
+        },
+      },
+      {
+        id: "type",
+        name: "Type",
+        width: 100,
+      },
+      {
+        id: "base",
+        name: "Base",
+      },
+      {
+        id: "description",
+        name: "Description",
+        width: 400,
+        maxWidth: 5000,
+        classMap: "cmm-node-desc",
+      },
+      {
+        id: "save_path",
+        name: "Save Path",
+        width: 200,
+      },
+      {
+        id: "filename",
+        name: "Filename",
+        width: 200,
+      },
+    ];
+
+    this.grid.setData({
+      options,
+      rows,
+      columns,
+    });
+
+    this.grid.render();
+  }
+
+  updateGrid() {
+    if (this.grid) {
+      this.grid.update();
+    }
+  }
+
+  // ===========================================================================================
+
+  renderSelected() {
+    const selectedList = this.grid.getSelectedRows();
+    if (!selectedList.length) {
+      this.showSelection("");
+      this.selectedModels = [];
+      return;
+    }
+
+    this.selectedModels = selectedList;
+    this.showSelection(
+      `<span>Selected <b>${selectedList.length}</b> models <button class="cmm-btn-install" mode="install">Install</button>`
+    );
+  }
+
+  focusInstall(item) {
+    const cellNode = this.grid.getCellNode(item, "installed");
+    if (cellNode) {
+      const cellBtn = cellNode.querySelector(`button[mode="install"]`);
+      if (cellBtn) {
+        cellBtn.classList.add("cmm-btn-loading");
+        return true;
+      }
+    }
+  }
+
+  async installModels(list, btn) {
+    btn.classList.add("cmm-btn-loading");
+    this.showLoading();
+    this.showError("");
+
+    let needRestart = false;
+    let errorMsg = "";
+
+    for (const item of list) {
+      this.grid.scrollRowIntoView(item);
+
+      if (!this.focusInstall(item)) {
+        this.grid.onNextUpdated(() => {
+          this.focusInstall(item);
+        });
+      }
+
+      this.showStatus(`Install ${item.name} ...`);
+
+      const data = item.originalData;
+      const res = await fetchData("/model/install", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (res.error) {
+        errorMsg = `Install failed: ${item.name} ${res.error.message}`;
+        break;
+      }
+
+      needRestart = true;
+
+      this.grid.setRowSelected(item, false);
+
+      item.refresh = true;
+      item.selectable = false;
+      this.grid.updateCell(item, "installed");
+      this.grid.updateCell(item, "tg-column-select");
+
+      this.showStatus(`Install ${item.name} successfully`);
+    }
+
+    this.hideLoading();
+    btn.classList.remove("cmm-btn-loading");
+
+    if (errorMsg) {
+      this.showError(errorMsg);
+    } else {
+      this.showStatus(`Install ${list.length} models successfully`);
+    }
+
+    if (needRestart) {
+      this.showMessage(
+        `To apply the installed model, please click the 'Refresh' button on the main menu.`,
+        "red"
+      );
+    }
+  }
+
+  getModelList(models) {
+    const typeMap = new Map();
+    const baseMap = new Map();
+
+    models.forEach((item, i) => {
+      const { type, base, name, reference, installed } = item;
+      item.originalData = JSON.parse(JSON.stringify(item));
+      item.size = this.sizeToBytes(item.size);
+      item.hash = md5(name + reference);
+      item.id = i + 1;
+
+      if (installed === "True") {
+        item.selectable = false;
+      }
+
+      typeMap.set(type, type);
+      baseMap.set(base, base);
+    });
+
+    const typeList = [];
+    typeMap.forEach((type) => {
+      typeList.push({
+        label: type,
+        value: type,
+      });
+    });
+    typeList.sort((a, b) => {
+      const au = a.label.toUpperCase();
+      const bu = b.label.toUpperCase();
+      if (au !== bu) {
+        return au > bu ? 1 : -1;
+      }
+      return 0;
+    });
+    this.typeList = [
+      {
+        label: "All",
+        value: "",
+      },
+    ].concat(typeList);
+
+    const baseList = [];
+    baseMap.forEach((base) => {
+      baseList.push({
+        label: base,
+        value: base,
+      });
+    });
+    baseList.sort((a, b) => {
+      const au = a.label.toUpperCase();
+      const bu = b.label.toUpperCase();
+      if (au !== bu) {
+        return au > bu ? 1 : -1;
+      }
+      return 0;
+    });
+    this.baseList = [
+      {
+        label: "All",
+        value: "",
+      },
+    ].concat(baseList);
+
+    return models;
+  }
+
+  // ===========================================================================================
+
+  async loadData() {
+    this.showLoading();
+
+    this.showStatus(`Loading external model list ...`);
+
+    const mode = manager_instance.datasrc_combo.value;
+
+    const res = await fetchData(`/externalmodel/getlist?mode=${mode}`);
+    if (res.error) {
+      this.showError("Failed to get external model list.");
+      this.hideLoading();
+      return;
+    }
+
+    const { models } = res.data;
+
+    this.modelList = this.getModelList(models);
+    // console.log("models", this.modelList);
+
+    this.updateFilter();
+
+    this.renderGrid();
+
+    this.hideLoading();
+  }
+
+  // ===========================================================================================
+
+  formatSize(v) {
+    const base = 1000;
+    const units = ["", "K", "M", "G", "T", "P"];
+    const space = "";
+    const postfix = "B";
+    if (v <= 0) {
+      return `0${space}${postfix}`;
+    }
+    for (let i = 0, l = units.length; i < l; i++) {
+      const min = Math.pow(base, i);
+      const max = Math.pow(base, i + 1);
+      if (v > min && v <= max) {
+        const unit = units[i];
+        if (unit) {
+          const n = v / min;
+          const nl = n.toString().split(".")[0].length;
+          const fl = Math.max(3 - nl, 1);
+          v = n.toFixed(fl);
+        }
+        v = v + space + unit + postfix;
+        break;
+      }
+    }
+    return v;
+  }
+
+  // for size sort
+  sizeToBytes(v) {
+    if (typeof v === "number") {
+      return v;
+    }
+    if (typeof v === "string") {
+      const n = parseFloat(v);
+      const unit = v
+        .replace(/[0-9.B]+/g, "")
+        .trim()
+        .toUpperCase();
+      if (unit === "K") {
+        return n * 1000;
+      }
+      if (unit === "M") {
+        return n * 1000 * 1000;
+      }
+      if (unit === "G") {
+        return n * 1000 * 1000 * 1000;
+      }
+      if (unit === "T") {
+        return n * 1000 * 1000 * 1000 * 1000;
+      }
+    }
+    return v;
+  }
+
+  showSelection(msg) {
+    this.element.querySelector(".cmm-manager-selection").innerHTML = msg;
+  }
+
+  showError(err) {
+    this.showMessage(err, "red");
+  }
+
+  showMessage(msg, color) {
+    if (color) {
+      msg = `<font color="${color}">${msg}</font>`;
+    }
+    this.element.querySelector(".cmm-manager-message").innerHTML = msg;
+  }
+
+  showStatus(msg, color) {
+    if (color) {
+      msg = `<font color="${color}">${msg}</font>`;
+    }
+    this.element.querySelector(".cmm-manager-status").innerHTML = msg;
+  }
+
+  showLoading() {
+    this.setDisabled(true);
+    if (this.grid) {
+      this.grid.showLoading();
+      this.grid.showMask({
+        opacity: 0.05,
+      });
+    }
+  }
+
+  hideLoading() {
+    this.setDisabled(false);
+    if (this.grid) {
+      this.grid.hideLoading();
+      this.grid.hideMask();
+    }
+  }
+
+  setDisabled(disabled) {
+    const $close = this.element.querySelector(".cmm-manager-close");
+
+    const list = [
+      ".cmm-manager-header input",
+      ".cmm-manager-header select",
+      ".cmm-manager-footer button",
+      ".cmm-manager-selection button",
+    ]
+      .map((s) => {
+        return Array.from(this.element.querySelectorAll(s));
+      })
+      .flat()
+      .filter((it) => {
+        return it !== $close;
+      });
+
+    list.forEach(($elem) => {
+      if (disabled) {
+        $elem.setAttribute("disabled", "disabled");
+      } else {
+        $elem.removeAttribute("disabled");
+      }
+    });
+
+    Array.from(this.element.querySelectorAll(".cmm-btn-loading")).forEach(
+      ($elem) => {
+        $elem.classList.remove("cmm-btn-loading");
+      }
+    );
+  }
+
+  setKeywords(keywords = "") {
+    this.keywords = keywords;
+    this.element.querySelector(".cmm-manager-keywords").value = keywords;
+  }
+
+  show() {
+    this.element.style.display = "flex";
+    this.setKeywords("");
+    this.showSelection("");
+    this.showMessage("");
+    this.loadData();
+  }
+
+  close() {
+    this.element.style.display = "none";
+  }
+
+  async showAddModelDialog() {
+    const dialog = document.createElement("dialog");
+    dialog.innerHTML = `
+			<form method="dialog" style="display: flex; flex-direction: column; gap: 10px; padding: 20px;">
+				<h3>Add New Model</h3>
+				
+				<label>
+					Name*:
+					<input type="text" name="name" required style="width: 100%;">
+				</label>
+				
+				<label>
+					Type*:
+					<input type="text" name="type" required style="width: 100%;">
+				</label>
+				
+				<label>
+					URL*:
+					<input type="url" name="url" required style="width: 100%;">
+				</label>
+				
+				<label>
+					Save Path*:
+					<input type="text" name="save_path" required style="width: 100%;">
+				</label>
+				
+				<label>
+					Base Model:
+					<input type="text" name="base" style="width: 100%;">
+				</label>
+				
+				<label>
+					Description:
+					<textarea name="description" rows="3" style="width: 100%;"></textarea>
+				</label>
+				
+				<div style="display: flex; gap: 10px; justify-content: flex-end;">
+					<button value="cancel">Cancel</button>
+					<button value="submit">Add Model</button>
+				</div>
+			</form>
+		`;
+
+    dialog.addEventListener("close", async () => {
+      if (dialog.returnValue === "submit") {
+        const formData = new FormData(dialog.querySelector("form"));
+        const modelData = Object.fromEntries(formData.entries());
+
+        // Add default values
+        modelData.filename = modelData.url.split("/").pop();
+        modelData.reference = modelData.url;
+        modelData.installed = "False";
+
+        const res = await fetchData("/model/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(modelData),
         });
 
-		grid.bind('onSelectChanged', (e, changes) => {
-            this.renderSelected();
-        });
-
-		grid.bind('onClick', (e, d) => {
-			const { rowItem } = d;
-			const target = d.e.target;
-			const mode = target.getAttribute("mode");
-			if (mode === "install") {
-				this.installModels([rowItem], target);
-			}
-
-        });
-
-		grid.setOption({
-			theme: 'dark',
-
-			selectVisible: true,
-			selectMultiple: true,
-			selectAllVisible: true,
-
-			textSelectable: true,
-			scrollbarRound: true,
-
-			frozenColumn: 1,
-			rowNotFound: "No Results",
-
-			rowHeight: 40,
-			bindWindowResize: true,
-			bindContainerResize: true,
-
-			cellResizeObserver: (rowItem, columnItem) => {
-				const autoHeightColumns = ['name', 'description'];
-				return autoHeightColumns.includes(columnItem.id)
-			},
-
-			// updateGrid handler for filter and keywords
-			rowFilter: (rowItem) => {
-
-				const searchableColumns = ["name", "type", "base", "description", "filename", "save_path"];
-
-				let shouldShown = grid.highlightKeywordsFilter(rowItem, searchableColumns, this.keywords);
-
-				if (shouldShown) {
-					if(this.filter && rowItem.installed !== this.filter) {
-						return false;
-					}
-
-					if(this.type && rowItem.type !== this.type) {
-						return false;
-					}
-
-					if(this.base && rowItem.base !== this.base) {
-						return false;
-					}
-
-				}
-
-				return shouldShown;
-			}
-		});
-
-	}
-
-	renderGrid() {
-
-		// update theme
-		const colorPalette = this.app.ui.settings.settingsValues['Comfy.ColorPalette'];
-		Array.from(this.element.classList).forEach(cn => {
-			if (cn.startsWith("cmm-manager-")) {
-				this.element.classList.remove(cn);
-			}
-		});
-		this.element.classList.add(`cmm-manager-${colorPalette}`);
-
-		const options = {
-			theme: colorPalette === "light" ? "" : "dark"
-		};
-
-		const rows = this.modelList || [];
-
-		const columns = [{
-			id: 'id',
-			name: 'ID',
-			width: 50,
-			align: 'center'
-		}, {
-			id: 'name',
-			name: 'Name',
-			width: 200,
-			minWidth: 100,
-			maxWidth: 500,
-			classMap: 'cmm-node-name',
-			formatter: function(name, rowItem, columnItem, cellNode) {
-				return `<a href=${rowItem.reference} target="_blank"><b>${name}</b></a>`;
-			}
-		}, {
-			id: 'installed',
-			name: 'Install',
-			width: 130,
-			minWidth: 110,
-			maxWidth: 200,
-			sortable: false,
-			align: 'center',
-			formatter: (installed, rowItem, columnItem) => {
-				if (rowItem.refresh) {
-					return `<font color="red">Refresh Required</span>`;
-				}
-				if (installed === "True") {
-					return `<div class="cmm-icon-passed">${icons.passed}</div>`;
-				}
-				return `<button class="cmm-btn-install" mode="install">Install</button>`;
-			}
-		}, {
-			id: 'url',
-			name: '',
-			width: 50,
-			sortable: false,
-			align: 'center',
-			formatter: (url, rowItem, columnItem) => {
-				return `<a class="cmm-btn-download" title="Download file" href="${url}" target="_blank">${icons.download}</a>`;
-			}
-		}, {
-			id: 'size',
-			name: 'Size',
-			width: 100,
-			formatter: (size) => {
-				if (typeof size === "number") {
-					return this.formatSize(size);
-				}
-				return size;
-			}
-		}, {
-			id: 'type',
-			name: 'Type',
-			width: 100
-		}, {
-			id: 'base',
-			name: 'Base'
-		}, {
-			id: 'description',
-			name: 'Description',
-			width: 400,
-			maxWidth: 5000,
-			classMap: 'cmm-node-desc'
-		}, {
-			id: "save_path",
-			name: 'Save Path',
-			width: 200
-		}, {
-			id: 'filename',
-			name: 'Filename',
-			width: 200
-		}];
-
-		this.grid.setData({
-			options,
-			rows,
-			columns
-		});
-
-		this.grid.render();
-		
-	}
-
-	updateGrid() {
-		if (this.grid) {
-			this.grid.update();
-		}
-	}
-
-	// ===========================================================================================
-
-	renderSelected() {
-		const selectedList = this.grid.getSelectedRows();
-		if (!selectedList.length) {
-			this.showSelection("");
-			this.selectedModels = [];
-			return;
-		}
-
-		this.selectedModels = selectedList;
-		this.showSelection(`<span>Selected <b>${selectedList.length}</b> models <button class="cmm-btn-install" mode="install">Install</button>`);
-	}
-
-	focusInstall(item) {
-		const cellNode = this.grid.getCellNode(item, "installed");
-		if (cellNode) {
-			const cellBtn = cellNode.querySelector(`button[mode="install"]`);
-			if (cellBtn) {
-				cellBtn.classList.add("cmm-btn-loading");
-				return true
-			}
-		}
-	}
-
-	async installModels(list, btn) {
-		
-		btn.classList.add("cmm-btn-loading");
-		this.showLoading();
-		this.showError("");
-
-		let needRestart = false;
-		let errorMsg = "";
-
-		for (const item of list) {
-			
-			this.grid.scrollRowIntoView(item);
-
-			if (!this.focusInstall(item)) {
-				this.grid.onNextUpdated(() => {
-					this.focusInstall(item);
-				});
-			}
-
-			this.showStatus(`Install ${item.name} ...`);
-
-			const data = item.originalData;
-			const res = await fetchData('/model/install', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(data)
-			});
-
-
-			if (res.error) {
-				errorMsg = `Install failed: ${item.name} ${res.error.message}`;
-				break;;
-			}
-
-			needRestart = true;
-
-			this.grid.setRowSelected(item, false);
-
-			item.refresh = true;
-			item.selectable = false;
-			this.grid.updateCell(item, "installed");
-			this.grid.updateCell(item, "tg-column-select");
-
-			this.showStatus(`Install ${item.name} successfully`);
-
-		}
-
-		this.hideLoading();
-		btn.classList.remove("cmm-btn-loading");
-
-		if (errorMsg) {
-			this.showError(errorMsg);
-		} else {
-			this.showStatus(`Install ${list.length} models successfully`);
-		}
-
-		if (needRestart) {
-			this.showMessage(`To apply the installed model, please click the 'Refresh' button on the main menu.`, "red")
-		}
-
-	}
-
-	getModelList(models) {
-
-		const typeMap = new Map();
-		const baseMap = new Map();
-
-		models.forEach((item, i) => {
-			const { type, base, name, reference, installed } = item;
-			item.originalData = JSON.parse(JSON.stringify(item));
-			item.size = this.sizeToBytes(item.size);
-			item.hash = md5(name + reference);
-			item.id = i + 1;
-
-			if (installed === "True") {
-				item.selectable = false;
-			}
-
-			typeMap.set(type, type);
-			baseMap.set(base, base);
-
-		});
-
-		const typeList = [];
-		typeMap.forEach(type => {
-			typeList.push({
-				label: type,
-				value: type
-			});
-		});
-		typeList.sort((a,b)=> {
-			const au = a.label.toUpperCase();
-        	const bu = b.label.toUpperCase();
-        	if (au !== bu) {
-            	return au > bu ? 1 : -1;
-			}
-			return 0;
-		});
-		this.typeList = [{
-			label: "All",
-			value: ""
-		}].concat(typeList);
-
-
-		const baseList = [];
-		baseMap.forEach(base => {
-			baseList.push({
-				label: base,
-				value: base
-			});
-		});
-		baseList.sort((a,b)=> {
-			const au = a.label.toUpperCase();
-        	const bu = b.label.toUpperCase();
-        	if (au !== bu) {
-            	return au > bu ? 1 : -1;
-			}
-			return 0;
-		});
-		this.baseList = [{
-			label: "All",
-			value: ""
-		}].concat(baseList);
-
-		return models;
-	}
-
-	// ===========================================================================================
-
-	async loadData() {
-
-		this.showLoading();
-
-		this.showStatus(`Loading external model list ...`);
-
-		const mode = manager_instance.datasrc_combo.value;
-
-		const res = await fetchData(`/externalmodel/getlist?mode=${mode}`);
-		if (res.error) {
-			this.showError("Failed to get external model list.");
-			this.hideLoading();
-			return
-		}
-		
-		const { models } = res.data;
-
-		this.modelList = this.getModelList(models);
-		// console.log("models", this.modelList);
-
-		this.updateFilter();
-		
-		this.renderGrid();
-
-		this.hideLoading();
-		
-	}
-
-	// ===========================================================================================
-
-	formatSize(v) {
-		const base = 1000;
-        const units = ['', 'K', 'M', 'G', 'T', 'P'];
-        const space = '';
-        const postfix = 'B';
-		if (v <= 0) {
-			return `0${space}${postfix}`;
-		}
-		for (let i = 0, l = units.length; i < l; i++) {
-			const min = Math.pow(base, i);
-			const max = Math.pow(base, i + 1);
-			if (v > min && v <= max) {
-				const unit = units[i];
-				if (unit) {
-					const n = v / min;
-					const nl = n.toString().split('.')[0].length;
-					const fl = Math.max(3 - nl, 1);
-					v = n.toFixed(fl);
-				}
-				v = v + space + unit + postfix;
-				break;
-			}
-		}
-		return v;
-	}
-
-	// for size sort
-	sizeToBytes(v) {
-		if (typeof v === "number") {
-			return v;
-		}
-		if (typeof v === "string") {
-			const n = parseFloat(v);
-			const unit = v.replace(/[0-9.B]+/g, "").trim().toUpperCase();
-			if (unit === "K") {
-				return n * 1000;
-			}
-			if (unit === "M") {
-				return n * 1000 * 1000;
-			}
-			if (unit === "G") {
-				return n * 1000 * 1000 * 1000;
-			}
-			if (unit === "T") {
-				return n * 1000 * 1000 * 1000 * 1000;
-			}
-		}
-		return v;
-	}
-
-	showSelection(msg) {
-		this.element.querySelector(".cmm-manager-selection").innerHTML = msg;
-	}
-
-	showError(err) {
-		this.showMessage(err, "red");
-	}
-
-	showMessage(msg, color) {
-		if (color) {
-			msg = `<font color="${color}">${msg}</font>`;
-		}
-		this.element.querySelector(".cmm-manager-message").innerHTML = msg;
-	}
-
-	showStatus(msg, color) {
-		if (color) {
-			msg = `<font color="${color}">${msg}</font>`;
-		}
-		this.element.querySelector(".cmm-manager-status").innerHTML = msg;
-	}
-
-	showLoading() {
-		this.setDisabled(true);
-		if (this.grid) {
-			this.grid.showLoading();
-			this.grid.showMask({
-				opacity: 0.05
-			});
-		}
-	}
-
-	hideLoading() {
-		this.setDisabled(false);
-		if (this.grid) {
-			this.grid.hideLoading();
-			this.grid.hideMask();
-		}
-	}
-
-	setDisabled(disabled) {
-
-		const $close = this.element.querySelector(".cmm-manager-close");
-
-		const list = [
-			".cmm-manager-header input",
-			".cmm-manager-header select",
-			".cmm-manager-footer button",
-			".cmm-manager-selection button"
-		].map(s => {
-			return Array.from(this.element.querySelectorAll(s));
-		})
-		.flat()
-		.filter(it => {
-			return it !== $close;
-		});
-		
-		list.forEach($elem => {
-			if (disabled) {
-				$elem.setAttribute("disabled", "disabled");
-			} else {
-				$elem.removeAttribute("disabled");
-			}
-		});
-
-		Array.from(this.element.querySelectorAll(".cmm-btn-loading")).forEach($elem => {
-			$elem.classList.remove("cmm-btn-loading");
-		});
-
-	}
-
-	setKeywords(keywords = "") {
-		this.keywords = keywords;
-		this.element.querySelector(".cmm-manager-keywords").value = keywords;
-	}
-
-	show() {
-		this.element.style.display = "flex";
-		this.setKeywords("");
-		this.showSelection("");
-		this.showMessage("");
-		this.loadData();
-	}
-
-	close() {
-		this.element.style.display = "none";
-	}
+        if (res.error) {
+          this.showError(`Failed to add model: ${res.error.message}`);
+        } else {
+          await this.loadData(); // Refresh the list
+          this.showStatus("Model added successfully");
+        }
+      }
+      dialog.remove();
+    });
+
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  }
 }
