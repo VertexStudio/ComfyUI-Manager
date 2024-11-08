@@ -323,6 +323,16 @@ const pageCss = `
     background-color: rgba(0, 255, 0, 0.1);
 }
 
+.cmm-manager .cmm-btn-remove {
+  background-color: #d32f2f;
+  color: white;
+  min-width: 70px;
+}
+
+.cmm-manager .cmm-btn-remove:hover {
+  background-color: #b71c1c;
+}
+
 `;
 
 const pageHtml = `
@@ -562,6 +572,8 @@ export class ModelManager {
       const mode = target.getAttribute("mode");
       if (mode === "install") {
         this.installModels([rowItem], target);
+      } else if (mode === "remove") {
+        this.removeLocalModel(rowItem, target);
       }
     });
 
@@ -731,6 +743,20 @@ export class ModelManager {
         id: "filename",
         name: "Filename",
         width: 200,
+      },
+      {
+        id: "actions",
+        name: "Actions",
+        width: 100,
+        sortable: false,
+        align: "center",
+        formatter: (value, rowItem) => {
+          // Only show remove button for local models
+          if (rowItem.source === "local") {
+            return '<button class="cmm-btn-remove" mode="remove">Remove</button>';
+          }
+          return "";
+        },
       },
     ];
 
@@ -1176,6 +1202,41 @@ export class ModelManager {
       messageDiv.textContent = installAfterSave
         ? `Failed to add/install model: ${error.message}`
         : `Failed to add model: ${error.message}`;
+    }
+  }
+
+  async removeLocalModel(item, btn) {
+    if (
+      !confirm(
+        `Are you sure you want to remove "${item.name}" from local models?`
+      )
+    ) {
+      return;
+    }
+
+    btn.classList.add("cmm-btn-loading");
+    this.showLoading();
+    this.showError("");
+
+    try {
+      const res = await fetchData("/externalmodel/remove_local", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item.originalData),
+      });
+
+      if (res.error) {
+        throw new Error(res.error.message);
+      }
+
+      // Refresh the grid
+      await this.loadData();
+      this.showStatus(`Removed ${item.name} successfully`);
+    } catch (error) {
+      this.showError(`Failed to remove model: ${error.message}`);
+    } finally {
+      this.hideLoading();
+      btn.classList.remove("cmm-btn-loading");
     }
   }
 }

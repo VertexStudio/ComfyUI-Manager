@@ -1488,6 +1488,60 @@ async def add_local_model(request):
         return web.Response(status=400)
 
 
+@PromptServer.instance.routes.post("/externalmodel/remove_local")
+async def remove_local_model(request):
+    if not is_allowed_security_level("middle"):
+        print(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+        return web.Response(status=403)
+
+    try:
+        data = await request.json()
+        local_models_path = os.path.join(
+            core.comfyui_manager_path, "local-model-list.json"
+        )
+
+        if os.path.exists(local_models_path):
+            with open(local_models_path, "r") as f:
+                local_json = json.load(f)
+
+            # Get the model path before removing from json
+            model_path = get_model_path(data)
+
+            # Remove the model with matching url
+            local_json["models"] = [
+                model
+                for model in local_json["models"]
+                if model.get("url") != data.get("url")
+            ]
+
+            # Save back to file
+            with open(local_models_path, "w") as f:
+                json.dump(local_json, f, indent=4)
+
+            # Remove the actual model file if it exists
+            if model_path and os.path.exists(model_path):
+                try:
+                    os.remove(model_path)
+                    print(f"[ComfyUI-Manager] Removed model file: {model_path}")
+
+                    # If it was a zip file, also try to remove the extracted directory
+                    if model_path.endswith(".zip") and os.path.exists(model_path[:-4]):
+                        shutil.rmtree(model_path[:-4])
+                        print(
+                            f"[ComfyUI-Manager] Removed extracted directory: {model_path[:-4]}"
+                        )
+                except Exception as e:
+                    print(f"[ComfyUI-Manager] Error removing model file: {e}")
+                    # Continue even if file removal fails - at least we updated the JSON
+
+            return web.json_response({"success": True}, content_type="application/json")
+
+        return web.Response(status=404)
+    except Exception as e:
+        print(f"Error removing local model: {e}")
+        return web.Response(status=400)
+
+
 args.enable_cors_header = "*"
 if hasattr(PromptServer.instance, "app"):
     app = PromptServer.instance.app
