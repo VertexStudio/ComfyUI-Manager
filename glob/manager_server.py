@@ -700,7 +700,6 @@ async def fetch_externalmodel_list(request):
         local_models_path = os.path.join(
             core.comfyui_manager_path, "local-model-list.json"
         )
-        print(f"Local models path: {local_models_path}")
         if os.path.exists(local_models_path):
             local_json = await core.get_data(local_models_path, silent=True)
 
