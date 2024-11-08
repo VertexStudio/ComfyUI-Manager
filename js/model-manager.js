@@ -257,6 +257,7 @@ const pageHtml = `
 		<select class="cmm-manager-base"></select>
 	</label>
 	<input class="cmm-manager-keywords" type="search" placeholder="Search" />
+	<button class="cmm-manager-direct-download">Direct Download</button>
 	<div class="cmm-manager-status"></div>
 	<div class="cmm-flex-auto"></div>
 </div>
@@ -706,10 +707,7 @@ export class ModelManager {
     }
 
     if (needRestart) {
-      this.showMessage(
-        `To apply the installed model, please click the 'Refresh' button on the main menu.`,
-        "red"
-      );
+      this.showMessage(`Installation completed.`, "green");
     }
   }
 
