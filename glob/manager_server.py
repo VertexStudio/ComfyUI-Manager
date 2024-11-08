@@ -1301,6 +1301,35 @@ async def load_components(request):
         print(f"[ComfyUI-Manager] failed to load components\n{e}")
         return web.Response(status=400)
 
+@PromptServer.instance.routes.post("/externalmodel/add_local")
+async def add_local_model(request):
+    if not is_allowed_security_level('middle'):
+        print(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+        return web.Response(status=403)
+    
+    try:
+        data = await request.json()
+        local_models_path = os.path.join(core.comfyui_manager_path, 'new-model-list.json')
+        
+        # Load or create local models file
+        if os.path.exists(local_models_path):
+            with open(local_models_path, 'r') as f:
+                local_json = json.load(f)
+        else:
+            local_json = {"models": []}
+            
+        # Add new model
+        local_json["models"].append(data)
+        
+        # Save back to file
+        with open(local_models_path, 'w') as f:
+            json.dump(local_json, f, indent=4)
+            
+        return web.Response(status=200)
+    except Exception as e:
+        print(f"Error adding local model: {e}")
+        return web.Response(status=400)
+
 
 args.enable_cors_header = "*"
 if hasattr(PromptServer.instance, "app"):
@@ -1370,4 +1399,3 @@ cm_global.register_extension('ComfyUI-Manager',
                                  'name': 'ComfyUI Manager',
                                  'nodes': {},
                                  'description': 'It provides the ability to manage custom nodes in ComfyUI.', })
-

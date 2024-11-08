@@ -214,6 +214,62 @@ const pageCss = `
 	background-color: #333;
 }
 
+.cmm-add-model-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 10002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cmm-add-model-content {
+    background: var(--bg-color);
+    padding: 20px;
+    border-radius: 8px;
+    min-width: 400px;
+}
+
+.cmm-add-model-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cmm-add-model-form label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.cmm-add-model-form input,
+.cmm-add-model-form select,
+.cmm-add-model-form textarea {
+    flex: 1;
+    background: var(--comfy-input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--input-text);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.cmm-add-model-form textarea {
+    height: 60px;
+    resize: vertical;
+}
+
+.cmm-add-model-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
 `;
 
 const pageHtml = `
@@ -230,6 +286,7 @@ const pageHtml = `
 	<input class="cmm-manager-keywords" type="search" placeholder="Search" />
 	<div class="cmm-manager-status"></div>
 	<div class="cmm-flex-auto"></div>
+	<button class="cmm-add-model-btn">Add Local Model</button>
 </div>
 <div class="cmm-manager-grid"></div>
 <div class="cmm-manager-selection"></div>
@@ -237,6 +294,25 @@ const pageHtml = `
 <div class="cmm-manager-footer">
 	<button class="cmm-manager-close">Close</button>
 	<div class="cmm-flex-auto"></div>
+</div>
+<div class="cmm-add-model-dialog" style="display:none">
+    <div class="cmm-add-model-content">
+        <h3>Add Local Model</h3>
+        <div class="cmm-add-model-form">
+            <label>Name: <input type="text" class="cmm-add-name"/></label>
+            <label>Type: <select class="cmm-add-type"></select></label>
+            <label>Base: <select class="cmm-add-base"></select></label>
+            <label>URL: <input type="text" class="cmm-add-url"/></label>
+            <label>Size: <input type="text" class="cmm-add-size" placeholder="e.g. 1.5GB"/></label>
+            <label>Description: <textarea class="cmm-add-description"></textarea></label>
+            <label>Save Path: <input type="text" class="cmm-add-save-path" value="default"/></label>
+            <label>Filename: <input type="text" class="cmm-add-filename"/></label>
+            <div class="cmm-add-model-buttons">
+                <button class="cmm-add-model-save">Save</button>
+                <button class="cmm-add-model-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
 </div>
 `;
 
@@ -368,6 +444,18 @@ export class ModelManager {
 			".cmm-manager-close": {
 				click: (e) => this.close()
 			},
+
+			".cmm-add-model-btn": {
+				click: () => this.showAddModelDialog()
+			},
+
+			".cmm-add-model-cancel": {
+				click: () => this.hideAddModelDialog()
+			},
+
+			".cmm-add-model-save": {
+				click: () => this.saveNewModel()
+			}
 
 		};
 		Object.keys(eventsMap).forEach(selector => {
@@ -895,5 +983,70 @@ export class ModelManager {
 
 	close() {
 		this.element.style.display = "none";
+	}
+
+	showAddModelDialog() {
+		const dialog = this.element.querySelector('.cmm-add-model-dialog');
+		dialog.style.display = 'flex';
+		
+		// Populate type and base dropdowns
+		const typeSelect = dialog.querySelector('.cmm-add-type');
+		const baseSelect = dialog.querySelector('.cmm-add-base');
+		
+		typeSelect.innerHTML = this.typeList
+			.filter(item => item.value) // Remove "All" option
+			.map(item => `<option value="${item.value}">${item.label}</option>`)
+			.join('');
+			
+		baseSelect.innerHTML = this.baseList
+			.filter(item => item.value) // Remove "All" option
+			.map(item => `<option value="${item.value}">${item.label}</option>`)
+			.join('');
+	}
+
+	hideAddModelDialog() {
+		const dialog = this.element.querySelector('.cmm-add-model-dialog');
+		dialog.style.display = 'none';
+		
+		// Clear form
+		const form = dialog.querySelector('.cmm-add-model-form');
+		form.querySelectorAll('input, textarea').forEach(input => input.value = '');
+	}
+
+	async saveNewModel() {
+		const dialog = this.element.querySelector('.cmm-add-model-dialog');
+		const data = {
+			name: dialog.querySelector('.cmm-add-name').value,
+			type: dialog.querySelector('.cmm-add-type').value,
+			base: dialog.querySelector('.cmm-add-base').value,
+			url: dialog.querySelector('.cmm-add-url').value,
+			size: dialog.querySelector('.cmm-add-size').value,
+			description: dialog.querySelector('.cmm-add-description').value,
+			save_path: dialog.querySelector('.cmm-add-save-path').value,
+			filename: dialog.querySelector('.cmm-add-filename').value,
+			reference: dialog.querySelector('.cmm-add-url').value,
+			installed: "False",
+			source: "local"
+		};
+		
+		// Validate required fields
+		if (!data.name || !data.type || !data.base || !data.url || !data.filename) {
+			this.showError("Please fill in all required fields");
+			return;
+		}
+		
+		const res = await fetchData('/externalmodel/add_local', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data)
+		});
+		
+		if (res.error) {
+			this.showError("Failed to add local model");
+			return;
+		}
+		
+		this.hideAddModelDialog();
+		await this.loadData(); // Refresh the grid
 	}
 }
