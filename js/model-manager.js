@@ -225,41 +225,53 @@ const pageCss = `
     left: 50%;
     transform: translate(-50%, -50%);
     background: var(--bg-color);
-    padding: 20px;
+    padding: 25px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     z-index: 10002;
     color: var(--fg-color);
-    min-width: 400px;
+    min-width: 500px;
+    font-family: var(--grid-font);
 }
 
 .cmm-direct-download-dialog h3 {
-    margin-top: 0;
+    margin: 0 0 20px 0;
+    font-size: 18px;
+}
+
+.cmm-direct-download-dialog label {
+    display: block;
     margin-bottom: 15px;
-    font-family: var(--grid-font);
+}
+
+.cmm-direct-download-dialog label > span {
+    display: block;
+    margin-bottom: 5px;
 }
 
 .cmm-direct-download-dialog input,
 .cmm-direct-download-dialog select {
     width: 100%;
-    margin-bottom: 10px;
-    padding: 8px;
+    box-sizing: border-box;
+    padding: 8px 12px;
     background-color: var(--comfy-input-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     color: var(--input-text);
     font-family: var(--grid-font);
+    font-size: 14px;
 }
 
 .cmm-direct-download-dialog .buttons {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    margin-top: 15px;
+    margin-top: 20px;
 }
 
 .cmm-direct-download-dialog button {
-    font-size: 16px;
+    font-size: 14px;
+    font-family: var(--grid-font);
     color: var(--input-text);
     background-color: var(--comfy-input-bg);
     border-radius: 8px;
@@ -990,15 +1002,15 @@ export class ModelManager {
     dialog.innerHTML = `
 			<h3>Direct Download Model</h3>
 			<label>
-				URL
+				<span>URL</span>
 				<input type="text" placeholder="Enter model URL" id="model-url"/>
 			</label>
 			<label>
-				Filename
+				<span>Filename</span>
 				<input type="text" placeholder="Enter filename" id="model-filename"/>
 			</label>
 			<label>
-				Type
+				<span>Type</span>
 				<select id="model-type">
 					${this.typeList
             .filter((t) => t.value)
@@ -1007,7 +1019,7 @@ export class ModelManager {
 				</select>
 			</label>
 			<label>
-				Save Path
+				<span>Save Path</span>
 				<input type="text" placeholder="Optional - defaults to 'default'" id="model-save-path"/>
 			</label>
 			<div class="buttons">
