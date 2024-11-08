@@ -313,6 +313,16 @@ const pageCss = `
     display: block;
 }
 
+.cmm-add-model-save-install {
+    background-color: var(--comfy-input-bg);
+    color: #00ff00;
+    border-color: #00ff00;
+}
+
+.cmm-add-model-save-install:hover {
+    background-color: rgba(0, 255, 0, 0.1);
+}
+
 `;
 
 const pageHtml = `
@@ -352,6 +362,7 @@ const pageHtml = `
             <label>Save Path: <input type="text" class="cmm-add-save-path" value="default"/></label>
             <label>Filename: * <input type="text" class="cmm-add-filename"/></label>
             <div class="cmm-add-model-buttons">
+                <button class="cmm-add-model-save-install">Save & Install</button>
                 <button class="cmm-add-model-save">Save</button>
                 <button class="cmm-add-model-cancel">Cancel</button>
             </div>
@@ -509,6 +520,10 @@ export class ModelManager {
 
       ".cmm-add-model-save": {
         click: () => this.saveNewModel(),
+      },
+
+      ".cmm-add-model-save-install": {
+        click: () => this.saveNewModel(true),
       },
     };
     Object.keys(eventsMap).forEach((selector) => {
@@ -814,10 +829,7 @@ export class ModelManager {
     }
 
     if (needRestart) {
-      this.showMessage(
-        `To apply the installed model, please click the 'Refresh' button on the main menu.`,
-        "red"
-      );
+      this.showMessage(`Model successfully installed.`, "red");
     }
   }
 
@@ -1094,7 +1106,7 @@ export class ModelManager {
     }
   }
 
-  async saveNewModel() {
+  async saveNewModel(installAfterSave = false) {
     const dialog = this.element.querySelector(".cmm-add-model-dialog");
     const messageDiv =
       dialog.querySelector(".cmm-add-model-message") ||
@@ -1110,7 +1122,7 @@ export class ModelManager {
       url: dialog.querySelector(".cmm-add-url").value,
       size: dialog.querySelector(".cmm-add-size").value,
       description: dialog.querySelector(".cmm-add-description").value,
-      save_path: dialog.querySelector(".cmm-add-save-path").value,
+      save_path: dialog.querySelector(".cmm-add-save-path").value || "etc",
       filename: dialog.querySelector(".cmm-add-filename").value,
       reference: dialog.querySelector(".cmm-add-url").value,
       installed: "False",
@@ -1135,18 +1147,35 @@ export class ModelManager {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Show success message and wait a moment before closing
       messageDiv.className = "cmm-add-model-message success";
       messageDiv.textContent = "Model added successfully!";
+
+      if (installAfterSave) {
+        messageDiv.textContent = "Model added. Installing...";
+
+        const installResponse = await fetchData("/model/install", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        if (installResponse.error) {
+          throw new Error(installResponse.error.message);
+        }
+
+        messageDiv.textContent = "Model added and installed successfully!";
+      }
 
       setTimeout(() => {
         this.hideAddModelDialog();
         this.loadData(); // Refresh the grid
       }, 1500);
     } catch (error) {
-      console.error("Error adding model:", error);
+      console.error("Error:", error);
       messageDiv.className = "cmm-add-model-message error";
-      messageDiv.textContent = "Failed to add local model";
+      messageDiv.textContent = installAfterSave
+        ? `Failed to add/install model: ${error.message}`
+        : `Failed to add model: ${error.message}`;
     }
   }
 }
