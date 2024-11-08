@@ -229,18 +229,53 @@ const pageCss = `
     border: 1px solid var(--border-color);
     border-radius: 8px;
     z-index: 10002;
+    color: var(--fg-color);
+    min-width: 400px;
 }
 
-.cmm-direct-download-dialog input {
+.cmm-direct-download-dialog h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-family: var(--grid-font);
+}
+
+.cmm-direct-download-dialog input,
+.cmm-direct-download-dialog select {
     width: 100%;
     margin-bottom: 10px;
-    padding: 5px;
+    padding: 8px;
+    background-color: var(--comfy-input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--input-text);
+    font-family: var(--grid-font);
 }
 
 .cmm-direct-download-dialog .buttons {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+    margin-top: 15px;
+}
+
+.cmm-direct-download-dialog button {
+    font-size: 16px;
+    color: var(--input-text);
+    background-color: var(--comfy-input-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    min-width: 100px;
+    cursor: pointer;
+}
+
+.cmm-direct-download-dialog button#download-confirm {
+    background-color: black;
+    color: white;
+}
+
+.cmm-direct-download-dialog.light button#download-confirm {
+    background-color: #333;
 }
 
 `;
@@ -954,15 +989,27 @@ export class ModelManager {
     dialog.className = "cmm-direct-download-dialog";
     dialog.innerHTML = `
 			<h3>Direct Download Model</h3>
-			<input type="text" placeholder="URL" id="model-url"/>
-			<input type="text" placeholder="Filename" id="model-filename"/>
-			<select id="model-type">
-				${this.typeList
-          .filter((t) => t.value)
-          .map((t) => `<option value="${t.value}">${t.label}</option>`)
-          .join("")}
-			</select>
-			<input type="text" placeholder="Save Path (optional)" id="model-save-path"/>
+			<label>
+				URL
+				<input type="text" placeholder="Enter model URL" id="model-url"/>
+			</label>
+			<label>
+				Filename
+				<input type="text" placeholder="Enter filename" id="model-filename"/>
+			</label>
+			<label>
+				Type
+				<select id="model-type">
+					${this.typeList
+            .filter((t) => t.value)
+            .map((t) => `<option value="${t.value}">${t.label}</option>`)
+            .join("")}
+				</select>
+			</label>
+			<label>
+				Save Path
+				<input type="text" placeholder="Optional - defaults to 'default'" id="model-save-path"/>
+			</label>
 			<div class="buttons">
 				<button id="download-cancel">Cancel</button>
 				<button id="download-confirm">Download</button>
@@ -995,6 +1042,12 @@ export class ModelManager {
         save_path: save_path || "default",
       });
     };
+
+    const colorPalette =
+      this.app.ui.settings.settingsValues["Comfy.ColorPalette"];
+    if (colorPalette === "light") {
+      dialog.classList.add("light");
+    }
   }
 
   async installDirectModel(data) {
