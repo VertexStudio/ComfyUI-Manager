@@ -589,7 +589,29 @@ def check_model_installed(json_obj):
 
 @PromptServer.instance.routes.get("/externalmodel/getlist")
 async def fetch_externalmodel_list(request):
+    # Get GitHub models
     json_obj = await core.get_data_by_mode(request.rel_url.query["mode"], 'model-list.json')
+    
+    # Get local models
+    try:
+        local_models_path = os.path.join(core.comfyui_manager_path, 'new-model-list.json')
+        print(f"Local models path: {local_models_path}")
+        if os.path.exists(local_models_path):
+            local_json = await core.get_data(local_models_path, silent=True)
+            
+            # Merge models lists
+            if local_json and 'models' in local_json:
+                # Add a source field to identify where models came from
+                for model in json_obj['models']:
+                    model['source'] = 'github'
+                for model in local_json['models']:
+                    model['source'] = 'local'
+                
+                # Extend the models list with local models
+                json_obj['models'].extend(local_json['models'])
+
+    except Exception as e:
+        print(f"[ComfyUI-Manager] Error loading local models list: {e}")
 
     check_model_installed(json_obj)
 

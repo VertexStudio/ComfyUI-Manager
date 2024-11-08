@@ -493,6 +493,14 @@ export class ModelManager {
 				return `<a href=${rowItem.reference} target="_blank"><b>${name}</b></a>`;
 			}
 		}, {
+			id: 'source',
+			name: 'Source',
+			width: 80,
+			align: 'center',
+			formatter: function(source) {
+				return source || 'github'; // Default to github for backwards compatibility
+			}
+		}, {
 			id: 'installed',
 			name: 'Install',
 			width: 130,
