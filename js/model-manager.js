@@ -275,6 +275,44 @@ const pageCss = `
     margin-top: 10px;
 }
 
+.cmm-required-note {
+    color: var(--input-text);
+    font-size: 0.9em;
+    margin-bottom: 10px;
+    opacity: 0.8;
+}
+
+.cmm-add-model-form label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.cmm-add-model-form label:has(input:invalid),
+.cmm-add-model-form label:has(select:invalid) {
+    color: #ff6666;
+}
+
+.cmm-add-model-message {
+    margin-top: 10px;
+    padding: 8px;
+    border-radius: 4px;
+    display: none;
+}
+
+.cmm-add-model-message.success {
+    background-color: rgba(0, 255, 0, 0.1);
+    color: #00ff00;
+    display: block;
+}
+
+.cmm-add-model-message.error {
+    background-color: rgba(255, 0, 0, 0.1);
+    color: #ff6666;
+    display: block;
+}
+
 `;
 
 const pageHtml = `
@@ -304,14 +342,15 @@ const pageHtml = `
     <div class="cmm-add-model-content">
         <h3>Add Local Model</h3>
         <div class="cmm-add-model-form">
-            <label>Name: <input type="text" class="cmm-add-name"/></label>
-            <label>Type: <select class="cmm-add-type"></select></label>
+            <div class="cmm-required-note">* Required fields</div>
+            <label>Name: * <input type="text" class="cmm-add-name"/></label>
+            <label>Type: * <select class="cmm-add-type"></select></label>
             <label>Base: <select class="cmm-add-base"></select></label>
-            <label>URL: <input type="text" class="cmm-add-url"/></label>
+            <label>URL: * <input type="text" class="cmm-add-url"/></label>
             <label>Size: <input type="text" class="cmm-add-size" placeholder="e.g. 1.5GB"/></label>
             <label>Description: <textarea class="cmm-add-description"></textarea></label>
             <label>Save Path: <input type="text" class="cmm-add-save-path" value="default"/></label>
-            <label>Filename: <input type="text" class="cmm-add-filename"/></label>
+            <label>Filename: * <input type="text" class="cmm-add-filename"/></label>
             <div class="cmm-add-model-buttons">
                 <button class="cmm-add-model-save">Save</button>
                 <button class="cmm-add-model-cancel">Cancel</button>
@@ -1043,15 +1082,27 @@ export class ModelManager {
     const dialog = this.element.querySelector(".cmm-add-model-dialog");
     dialog.style.display = "none";
 
-    // Clear form
+    // Clear form and messages
     const form = dialog.querySelector(".cmm-add-model-form");
     form
       .querySelectorAll("input, textarea")
       .forEach((input) => (input.value = ""));
+    const messageDiv = dialog.querySelector(".cmm-add-model-message");
+    if (messageDiv) {
+      messageDiv.className = "cmm-add-model-message";
+      messageDiv.textContent = "";
+    }
   }
 
   async saveNewModel() {
     const dialog = this.element.querySelector(".cmm-add-model-dialog");
+    const messageDiv =
+      dialog.querySelector(".cmm-add-model-message") ||
+      dialog
+        .querySelector(".cmm-add-model-form")
+        .appendChild(document.createElement("div"));
+    messageDiv.className = "cmm-add-model-message";
+
     const data = {
       name: dialog.querySelector(".cmm-add-name").value,
       type: dialog.querySelector(".cmm-add-type").value,
@@ -1068,7 +1119,8 @@ export class ModelManager {
 
     // Validate required fields
     if (!data.name || !data.type || !data.url || !data.filename) {
-      this.showError("Please fill in all required fields");
+      messageDiv.className = "cmm-add-model-message error";
+      messageDiv.textContent = "Please fill in all required fields";
       return;
     }
 
@@ -1083,11 +1135,18 @@ export class ModelManager {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      this.hideAddModelDialog();
-      await this.loadData(); // Refresh the grid
+      // Show success message and wait a moment before closing
+      messageDiv.className = "cmm-add-model-message success";
+      messageDiv.textContent = "Model added successfully!";
+
+      setTimeout(() => {
+        this.hideAddModelDialog();
+        this.loadData(); // Refresh the grid
+      }, 1500);
     } catch (error) {
       console.error("Error adding model:", error);
-      this.showError("Failed to add local model");
+      messageDiv.className = "cmm-add-model-message error";
+      messageDiv.textContent = "Failed to add local model";
     }
   }
 }
