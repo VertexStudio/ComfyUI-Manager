@@ -1219,22 +1219,22 @@ export class ModelManager {
     this.showError("");
 
     try {
-      const res = await fetchData("/externalmodel/remove_local", {
+      const response = await fetchData("/externalmodel/remove_local", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(item.originalData),
       });
 
-      if (!res.ok) {
-        throw new Error(res.data?.message || "Failed to remove model");
+      if (response.error) {
+        throw new Error(response.error.message);
       }
 
       // Refresh the grid
       await this.loadData();
 
       // Show the detailed message from the server
-      if (res.data?.message) {
-        this.showMessage(res.data.message.replace(/\n/g, "<br>"), "green");
+      if (response.data?.message) {
+        this.showMessage(response.data.message.replace(/\n/g, "<br>"), "green");
       } else {
         this.showStatus(`Removed ${item.name} successfully`);
       }
