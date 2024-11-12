@@ -1518,28 +1518,34 @@ async def remove_local_model(request):
             with open(local_models_path, "w") as f:
                 json.dump(local_json, f, indent=4)
 
+            message = f"Model '{data.get('name')}' removed from local list"
+
             # Remove the actual model file if it exists
             if model_path and os.path.exists(model_path):
                 try:
                     os.remove(model_path)
-                    print(f"[ComfyUI-Manager] Removed model file: {model_path}")
+                    message += f"\nRemoved model file: {model_path}"
 
                     # If it was a zip file, also try to remove the extracted directory
                     if model_path.endswith(".zip") and os.path.exists(model_path[:-4]):
                         shutil.rmtree(model_path[:-4])
-                        print(
-                            f"[ComfyUI-Manager] Removed extracted directory: {model_path[:-4]}"
-                        )
+                        message += f"\nRemoved extracted directory: {model_path[:-4]}"
                 except Exception as e:
-                    print(f"[ComfyUI-Manager] Error removing model file: {e}")
-                    # Continue even if file removal fails - at least we updated the JSON
+                    message += f"\nError removing model file: {e}"
+                    print(f"[ComfyUI-Manager] {message}")
+            else:
+                message += "\nModel file was not found on disk"
 
-            return web.json_response({"success": True}, content_type="application/json")
+            print(f"[ComfyUI-Manager] {message}")
+            return web.json_response(
+                {"success": True, "message": message}, content_type="application/json"
+            )
 
         return web.Response(status=404)
     except Exception as e:
-        print(f"Error removing local model: {e}")
-        return web.Response(status=400)
+        error_msg = f"Error removing local model: {e}"
+        print(f"[ComfyUI-Manager] {error_msg}")
+        return web.json_response({"success": False, "message": error_msg}, status=400)
 
 
 args.enable_cors_header = "*"

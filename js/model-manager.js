@@ -1225,13 +1225,19 @@ export class ModelManager {
         body: JSON.stringify(item.originalData),
       });
 
-      if (res.error) {
-        throw new Error(res.error.message);
+      if (!res.ok) {
+        throw new Error(res.data?.message || "Failed to remove model");
       }
 
       // Refresh the grid
       await this.loadData();
-      this.showStatus(`Removed ${item.name} successfully`);
+
+      // Show the detailed message from the server
+      if (res.data?.message) {
+        this.showMessage(res.data.message.replace(/\n/g, "<br>"), "green");
+      } else {
+        this.showStatus(`Removed ${item.name} successfully`);
+      }
     } catch (error) {
       this.showError(`Failed to remove model: ${error.message}`);
     } finally {
